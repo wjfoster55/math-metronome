@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Math Metronome — a rhythm playground</title>
+<style>
+  :root{ --bg:#101014; --card:#1a1a22; --card2:#23232f; --ink:#f2f0ea; --dim:#a7a3b5;
+         --acc:#ffb347; --acc2:#6ee7c8; --acc3:#ff7a9e; --line:#33333f; }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  .wrap{max-width:880px; margin:0 auto; padding:14px 14px 60px;}
+  h1{font-size:22px; margin:6px 0 2px;}
+  .sub{color:var(--dim); font-size:13.5px; margin:0 0 14px; line-height:1.45;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;}
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  button{background:var(--card2); color:var(--ink); border:1px solid var(--line); border-radius:10px;
+         padding:10px 14px; font-size:15px; cursor:pointer;}
+  button:active{transform:scale(.97);}
+  button.on{background:var(--acc); color:#191204; border-color:var(--acc); font-weight:700;}
+  button.teal.on{background:var(--acc2); color:#04241c;}
+  button.pink.on{background:var(--acc3); color:#2b0713;}
+  #playBtn{font-size:22px; padding:16px 30px; border-radius:14px; background:var(--acc); color:#191204;
+           font-weight:800; border:none; min-width:170px;}
+  #playBtn.playing{background:var(--acc3); color:#2b0713;}
+  input[type=range]{flex:1; min-width:140px; height:34px;}
+  input[type=text], input[type=number], textarea, select{background:#0d0d12; color:var(--ink);
+        border:1px solid var(--line); border-radius:9px; padding:9px 10px; font-size:15px;}
+  input[type=number]{width:76px;}
+  .bpmNum{font-size:30px; font-weight:800; min-width:88px; text-align:center;}
+  .lbl{color:var(--dim); font-size:12.5px; text-transform:uppercase; letter-spacing:.06em;}
+  .trackHead{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;}
+  .trackName{font-weight:700; font-size:16px;}
+  .grid{display:flex; flex-wrap:wrap; gap:4px; margin:8px 0 4px;}
+  .cell{width:34px; height:40px; border-radius:8px; border:1px solid var(--line); background:#0d0d12;
+        color:var(--dim); font-size:11px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:3px;
+        cursor:pointer; user-select:none;}
+  .cell.hit{background:#3d3d55; color:var(--ink); border-color:#55556f;}
+  .cell.accent{background:var(--acc); color:#191204; border-color:var(--acc); font-weight:800;}
+  .cell.now{outline:3px solid #fff; outline-offset:1px;}
+  .cell.mirror-now{outline:3px dashed var(--acc2); outline-offset:1px;}
+  .gen{display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px; font-size:13px; color:var(--dim);}
+  .gen input[type=text]{width:132px; padding:7px 8px; font-size:14px;}
+  .gen button{padding:7px 10px; font-size:13.5px;}
+  #mathOut{white-space:pre-wrap; font-size:14px; line-height:1.55;}
+  .savedItem{display:flex; gap:8px; align-items:center; background:var(--card2); border:1px solid var(--line);
+             border-radius:10px; padding:8px 10px; margin:6px 0; flex-wrap:wrap;}
+  textarea{width:100%; min-height:64px; font-size:12.5px; word-break:break-all;}
+  .presetBtn{margin:3px 2px; font-size:14px;}
+  .big{font-size:17px;}
+  .note{color:var(--dim); font-size:13px; line-height:1.5;}
+  .mirrorTag{color:var(--acc2); font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🥁 Math Metronome</h1>
+  <p class="sub">A playground for rhythm <i>math</i> — stack cycles, group them, mirror them.
+  Tap a preset, hit play, listen. No knobs you have to master: if Muse sends you a code or a link, paste / open it and it loads itself.</p>
+
+  <div class="card">
+    <div class="row">
+      <button id="playBtn">▶ Play</button>
+      <div>
+        <div class="lbl">Tempo (per quarter note)</div>
+        <div class="row"><input type="range" id="bpm" min="40" max="220" value="120"><span class="bpmNum" id="bpmNum">120</span></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <span class="lbl">Hear it:</span>
+      <button id="modeF" class="on">Forward</button>
+      <button id="modeR">Reversed</button>
+      <button id="modeB" class="pink">Both together (crab)</button>
+      <span class="note" id="cycleInfo"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl" style="margin-bottom:8px;">Start from a pattern — just listen</div>
+    <div id="presets"></div>
+  </div>
+
+  <div id="tracks"></div>
+
+  <div class="card">
+    <div class="row">
+      <button id="addTrack">＋ Add a layer</button>
+      <span class="note">Each layer is its own cycle of sixteenth-note pulses. Layers of different lengths drift and realign — the readout below tells you when.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="lbl" style="margin-bottom:6px;">What is this, mathematically?</div>
+    <div id="mathOut">—</div>
+  </div>
+
+  <div class="card">
+    <div class="lbl" style="margin-bottom:8px;">Save one you like</div>
+    <div class="row">
+      <input type="text" id="saveName" placeholder="Name it, e.g. lurchy one" style="flex:1; min-width:160px;">
+      <button id="saveBtn" class="teal on" style="background:var(--card2); color:var(--ink);">Save</button>
+    </div>
+    <div id="savedList"></div>
+    <div class="lbl" style="margin:14px 0 6px;">Share it with Muse (or load one Muse made you)</div>
+    <textarea id="shareBox" placeholder="Export puts a code here. Paste a code from Muse here and tap Load code — or just open a link Muse sends you, it loads itself."></textarea>
+    <div class="row" style="margin-top:8px;">
+      <button id="exportBtn">Export code</button>
+      <button id="importBtn">Load code</button>
+      <button id="copyBtn">Copy code</button>
+      <span class="note" id="shareMsg"></span>
+    </div>
+  </div>
+
+  <p class="note">How to play with a layer: tap its squares to flip a pulse on / off / accent.
+  Or skip the tapping — use a generator: <b>Grouping</b> (type 4+4+4+3, hits land on each group's first pulse),
+  <b>Every K</b> (a hit every K pulses), <b>Euclid K of N</b> (K hits spread as evenly as math allows over N pulses — the classic polyrhythm machine).
+  <b>Mirror</b> flips a layer backwards; <b>Rotate</b> spins it by one pulse.</p>
+</div>
+
+<script>
+"use strict";
+// ---------- state ----------
+let state = { bpm: 120, mode: "F", tracks: [] };
+let nextId = 1;
+function mkTrack(name, n, pattern, tone, vol){
+  return { id: nextId++, name, n, pattern: pattern.slice(), tone, vol: vol==null?0.9:vol, on:true };
+}
+// pattern values: 0 off, 1 hit, 2 accent
+
+// ---------- presets (pure rhythm math, no melody) ----------
+function grpPat(groups, accentFirst=true){
+  const n = groups.reduce((a,b)=>a+b,0); const p = new Array(n).fill(0); let i=0;
+  for(const g of groups){ p[i]=2; for(let k=1;k<g;k++) p[i+k]=0; i+=g; }
+  return {n, p};
+}
+function grpPatTicks(groups){ // group starts accented, other pulses light hits
+  const n = groups.reduce((a,b)=>a+b,0); const p = new Array(n).fill(1); let i=0;
+  for(const g of groups){ p[i]=2; i+=g; }
+  return {n, p};
+}
+function euclid(k, n){
+  const p = new Array(n).fill(0);
+  // Bresenham-style even spread
+  let prev = -1;
+  for(let i=0;i<n;i++){ const cur = Math.floor(i*k/n); if(cur!==prev && k>0){ if(i>0||true){} } prev = cur; }
+  for(let i=0;i<n;i++){ if(Math.floor((i+1)*k/n) !== Math.floor(i*k/n)) p[i]=1; }
+  if(k>0) p[0]=2;
+  return {n, p};
+}
+function every(k, n){ const p=new Array(n).fill(0); for(let i=0;i<n;i+=k) p[i]=2; return {n,p}; }
+
+const PRESETS = [
+ { name:"1 · Plain 15/16 (the garbage baseline)", bpm:120, tracks(){ const g=grpPatTicks([15]); return [ mkTrack("15 straight", g.n, g.p, "click") ]; } },
+ { name:"2 · 15 grouped 4+4+4+3", bpm:120, tracks(){ const g=grpPatTicks([4,4,4,3]); return [ mkTrack("grouped 15", g.n, g.p, "wood") ]; } },
+ { name:"3 · Its mirror: 3+4+4+4 (same bar, reversed grouping)", bpm:120, tracks(){ const g=grpPatTicks([3,4,4,4]); return [ mkTrack("mirrored 15", g.n, g.p, "wood") ]; } },
+ { name:"4 · Both groupings stacked (4+4+4+3 over 3+4+4+4)", bpm:120, tracks(){ const a=grpPatTicks([4,4,4,3]); const b=grpPatTicks([3,4,4,4]); return [ mkTrack("forward grouping", a.n, a.p, "wood"), mkTrack("mirror grouping", b.n, b.p, "bell") ]; } },
+ { name:"5 · 30-block: 13+17, mirror block 17+13 underneath", bpm:160, tracks(){ const a=grpPatTicks([13,17]); const b=grpPatTicks([17,13]); return [ mkTrack("13 then 17", a.n, a.p, "wood"), mkTrack("17 then 13", b.n, b.p, "lowclick") ]; } },
+ { name:"6 · 3/4 over 15/16 (hit every 4 pulses, over a 15 cycle)", bpm:120, tracks(){ const a=grpPatTicks([4,4,4,3]); const b=every(4,15); return [ mkTrack("15/16 grouped", a.n, a.p, "wood"), mkTrack("every 4 (3/4 feel)", b.n, b.p, "kick") ]; } },
+ { name:"7 · Euclid: 3, 5 and 7 hits spread over 15", bpm:132, tracks(){ const a=euclid(3,15), b=euclid(5,15), c=euclid(7,15); return [ mkTrack("3 in 15", a.n, a.p, "bell"), mkTrack("5 in 15", b.n, b.p, "wood"), mkTrack("7 in 15", c.n, c.p, "click") ]; } },
+ { name:"8 · Crab starter: one 15 pattern — use Both mode to hear it against its reverse", bpm:120, tracks(){ const g=grpPat([3,2,4,2,4]); const p=g.p.map(v=>v===2?2:(v?1:0)); return [ mkTrack("crab line", g.n, p, "wood") ]; } },
+ { name:"9 · The song's 30-slot block, silent centre: 15+15 with a rest at the seam", bpm:160, tracks(){ const a=grpPatTicks([15,15]); return [ mkTrack("wing block", a.n, a.p, "wood"), mkTrack("pulse", 30, every(5,30).p.map(v=>v?1:0), "click", 0.35) ]; } },
+ { name:"10 · 5 over 4 over 15 (three clocks, watch the realign readout)", bpm:120, tracks(){ return [ mkTrack("every 5", 20, every(5,20).p, "kick"), mkTrack("every 4", 20, every(4,20).p, "wood"), mkTrack("15 cycle", 15, grpPatTicks([4,4,4,3]).p, "click", 0.5) ]; } },
+];
+
+// ---------- audio ----------
+let AC = null;
+function audio(){ if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); return AC; }
+function noiseBuf(ac){ const b=ac.createBuffer(1, ac.sampleRate*0.1, ac.sampleRate); const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; return b; }
+let _nb=null;
+function blip(tone, t, vol, accent){
+  const ac = audio(); const g = ac.createGain(); g.connect(ac.destination);
+  const v = vol * (accent?1.0:0.55);
+  if(tone==="kick"){ const o=ac.createOscillator(), og=ac.createGain(); o.type="sine";
+    o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(42,t+0.11);
+    og.gain.setValueAtTime(v,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.14);
+    o.connect(og); og.connect(g); g.gain.value=1; o.start(t); o.stop(t+0.16); return; }
+  if(tone==="snap"){ if(!_nb) _nb=noiseBuf(ac); const s=ac.createBufferSource(); s.buffer=_nb;
+    const f=ac.createBiquadFilter(); f.type="highpass"; f.frequency.value=3000;
+    g.gain.setValueAtTime(v*0.8,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+    s.connect(f); f.connect(g); s.start(t); s.stop(t+0.06); return; }
+  const freq = {click:2100, lowclick:1150, wood:760, bell:1560}[tone]||1200;
+  const o=ac.createOscillator(); o.type = tone==="bell" ? "sine" : (tone==="wood" ? "sine" : "square");
+  o.frequency.setValueAtTime(freq,t);
+  if(tone==="wood") o.frequency.exponentialRampToValueAtTime(210,t+0.07);
+  const dur = tone==="bell" ? 0.28 : 0.055;
+  g.gain.setValueAtTime(v*(tone==="bell"?0.5:0.32),t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  o.connect(g); o.start(t); o.stop(t+dur+0.02);
+}
+
+// ---------- scheduling ----------
+let playing=false, curPulse=0, nextTime=0, timer=null;
+function stepDur(){ return 60/state.bpm/4; }
+function trackHit(tr, pulse){
+  const idx = pulse % tr.n;
+  if(state.mode==="F") return tr.pattern[idx];
+  const ridx = tr.n-1-idx;
+  if(state.mode==="R") return tr.pattern[ridx];
+  return Math.max(tr.pattern[idx], tr.pattern[ridx]); // Both
+}
+function scheduler(){
+  const ac = audio();
+  while(nextTime < ac.currentTime + 0.14){
+    const t = nextTime, pulse = curPulse;
+    for(const tr of state.tracks){ if(!tr.on) continue; const h=trackHit(tr,pulse); if(h>0) blip(tr.tone, t, tr.vol, h===2); }
+    const delay = Math.max(0,(t-ac.currentTime)*1000);
+    const p=pulse; setTimeout(()=>drawPlayhead(p), delay);
+    curPulse++; nextTime += stepDur();
+  }
+}
+function setPlaying(on){
+  playing=on; const b=document.getElementById("playBtn");
+  if(on){ audio(); curPulse=0; nextTime=audio().currentTime+0.06; timer=setInterval(scheduler,25); scheduler();
+    b.textContent="■ Stop"; b.classList.add("playing"); }
+  else { clearInterval(timer); b.textContent="▶ Play"; b.classList.remove("playing"); drawPlayhead(-1); }
+}
+
+// ---------- rendering ----------
+const TONES = ["click","lowclick","wood","bell","kick","snap"];
+function render(){
+  document.getElementById("bpm").value = state.bpm;
+  document.getElementById("bpmNum").textContent = state.bpm;
+  for(const [id,m] of [["modeF","F"],["modeR","R"],["modeB","B"]])
+    document.getElementById(id).classList.toggle("on", state.mode===m);
+  const box = document.getElementById("tracks"); box.innerHTML="";
+  state.tracks.forEach((tr,ti)=>{
+    const card=document.createElement("div"); card.className="card";
+    const head=document.createElement("div"); head.className="trackHead";
+    head.innerHTML = `<span class="trackName">${tr.name}</span>
+      <span class="note">${tr.n} pulses</span>
+      <span class="mirrorTag">${state.mode==="B" ? "dashed outline = where its mirror is" : state.mode==="R" ? "you are hearing this layer backwards" : ""}</span>`;
+    const toneSel=document.createElement("select");
+    for(const t of TONES){ const o=document.createElement("option"); o.value=t; o.textContent=t; if(t===tr.tone)o.selected=true; toneSel.appendChild(o); }
+    toneSel.onchange=()=>{ tr.tone=toneSel.value; };
+    const onBtn=document.createElement("button"); onBtn.textContent=tr.on?"On":"Muted"; onBtn.className=tr.on?"teal on":"";
+    onBtn.onclick=()=>{ tr.on=!tr.on; render(); };
+    const vol=document.createElement("input"); vol.type="range"; vol.min=0; vol.max=100; vol.value=Math.round(tr.vol*100); vol.style.maxWidth="110px";
+    vol.oninput=()=>{ tr.vol=vol.value/100; };
+    const del=document.createElement("button"); del.textContent="✕"; del.onclick=()=>{ state.tracks.splice(ti,1); render(); };
+    head.append(toneSel,onBtn,vol,del); card.appendChild(head);
+
+    const grid=document.createElement("div"); grid.className="grid"; grid.id="grid"+tr.id;
+    tr.pattern.forEach((v,i)=>{
+      const c=document.createElement("div"); c.className="cell"+(v===1?" hit":v===2?" accent":""); c.textContent=i+1;
+      c.onclick=()=>{ tr.pattern[i]=(v+1)%3; render(); };
+      grid.appendChild(c);
+    });
+    card.appendChild(grid);
+
+    const gen=document.createElement("div"); gen.className="gen";
+    const gIn=document.createElement("input"); gIn.type="text"; gIn.placeholder="4+4+4+3"; gIn.id="grp"+tr.id;
+    const gBtn=document.createElement("button"); gBtn.textContent="Grouping →";
+    gBtn.onclick=()=>{ const parts=gIn.value.split("+").map(s=>parseInt(s.trim(),10)).filter(x=>x>0);
+      if(!parts.length) return; const g=grpPatTicks(parts); tr.n=g.n; tr.pattern=g.p; render(); };
+    const eK=document.createElement("input"); eK.type="number"; eK.min=1; eK.max=64; eK.placeholder="K"; eK.id="evk"+tr.id;
+    const eBtn=document.createElement("button"); eBtn.textContent="Every K →";
+    eBtn.onclick=()=>{ const k=parseInt(eK.value,10); if(!(k>0))return; const e=every(k,tr.n); tr.pattern=e.p; render(); };
+    const euN=document.createElement("input"); euN.type="number"; euN.min=1; euN.max=64; euN.placeholder="hits"; euN.id="euk"+tr.id;
+    const euBtn=document.createElement("button"); euBtn.textContent="Euclid (hits of this cycle) →";
+    euBtn.onclick=()=>{ const k=parseInt(euN.value,10); if(!(k>=0))return; const e=euclid(Math.min(k,tr.n),tr.n); tr.pattern=e.p; render(); };
+    const mBtn=document.createElement("button"); mBtn.textContent="Mirror ⇋"; mBtn.onclick=()=>{ tr.pattern.reverse(); render(); };
+    const rBtn=document.createElement("button"); rBtn.textContent="Rotate →"; rBtn.onclick=()=>{ tr.pattern.unshift(tr.pattern.pop()); render(); };
+    const cBtn=document.createElement("button"); cBtn.textContent="Clear"; cBtn.onclick=()=>{ tr.pattern=tr.pattern.map(()=>0); render(); };
+    gen.append("Fill it with math:", gIn, gBtn, eK, eBtn, euN, euBtn, mBtn, rBtn, cBtn);
+    card.appendChild(gen);
+    box.appendChild(card);
+  });
+  updateMath();
+}
+function drawPlayhead(pulse){
+  document.querySelectorAll(".cell.now,.cell.mirror-now").forEach(c=>c.classList.remove("now","mirror-now"));
+  if(pulse<0) return;
+  for(const tr of state.tracks){
+    const grid=document.getElementById("grid"+tr.id); if(!grid) continue;
+    const idx=pulse%tr.n, ridx=tr.n-1-idx;
+    if(grid.children[idx]) grid.children[idx].classList.add("now");
+    if(state.mode!=="F" && grid.children[ridx]) grid.children[ridx].classList.add("mirror-now");
+  }
+  const info=document.getElementById("cycleInfo");
+  const L=lcmAll(state.tracks.map(t=>t.n)); const cyc=Math.floor(pulse/L)+1, pos=(pulse%L)+1;
+  info.textContent = `super-cycle ${cyc} · pulse ${pos} of ${L} · ${(L*stepDur()).toFixed(2)}s per super-cycle`;
+}
+
+// ---------- math readout ----------
+function gcd(a,b){ return b?gcd(b,a%b):a; }
+function lcm(a,b){ return a*b/gcd(a,b); }
+function lcmAll(ns){ return ns.length? ns.reduce(lcm,1) : 0; }
+function gapsOf(p){ const idx=p.map((v,i)=>v>0?i:-1).filter(i=>i>=0); if(idx.length<2) return idx.length?[p.length]:[];
+  const g=[]; for(let i=1;i<idx.length;i++) g.push(idx[i]-idx[i-1]); g.push(p.length-idx[idx.length-1]+idx[0]); return g; }
+function isPalindrome(p){ for(let i=0;i<p.length/2;i++) if(p[i]!==p[p.length-1-i]) return false; return true; }
+function isEuclidPat(p){ const k=p.filter(v=>v>0).length; if(!k) return false; const e=euclid(k,p.length).p;
+  for(let r=0;r<p.length;r++){ let ok=true; for(let i=0;i<p.length;i++) if((p[i]>0)!==(e[(i+r)%p.length]>0)){ ok=false; break; } if(ok) return true; } return false; }
+function updateMath(){
+  const L=lcmAll(state.tracks.map(t=>t.n)); const out=[];
+  out.push(`Layers realign every ${L} pulses = ${(L*stepDur()).toFixed(2)} seconds at ${state.bpm} BPM. Until then, they're drifting against each other — that drift IS the polyrhythm.`);
+  for(const tr of state.tracks){
+    const hits=tr.pattern.filter(v=>v>0).length, gaps=gapsOf(tr.pattern);
+    const bits=[`${tr.name}: ${tr.n} pulses, ${hits} hits`];
+    if(gaps.length) bits.push(`gaps between hits: ${gaps.join(", ")}`);
+    bits.push(isPalindrome(tr.pattern) ? "it IS a palindrome — forward and backward are the same rhythm" : "not a palindrome — reversed, it's a genuinely different rhythm");
+    if(isEuclidPat(tr.pattern)) bits.push("hits are spread Euclid-evenly (as equal as math allows)");
+    if(tr.pattern.every(v=>v===tr.pattern[0])) bits.push("every pulse identical — no shape yet");
+    out.push("• "+bits.join(" · "));
+  }
+  out.push(state.mode==="B" ? "Both mode: every pulse you hear is a hit from the pattern OR its mirror — pairs of pulses equidistant from the centre sound together across time."
+    : state.mode==="R" ? "Reversed mode: groupings flip (4+4+4+3 becomes 3+4+4+4), accents that were early are now late."
+    : "Forward mode: what you built is what you hear.");
+  document.getElementById("mathOut").textContent=out.join("\n");
+}
+
+// ---------- save / share ----------
+const LS_KEY="math-metronome-saves-v1";
+function snapshot(){ return { bpm:state.bpm, mode:state.mode, tracks:state.tracks.map(t=>({name:t.name,n:t.n,pattern:t.pattern,tone:t.tone,vol:t.vol,on:t.on})) }; }
+function loadSnap(s){ state.bpm=s.bpm||120; state.mode=s.mode||"F"; nextId=1;
+  state.tracks=(s.tracks||[]).map(t=>{ const tr=mkTrack(t.name||"layer", t.n||t.pattern.length, t.pattern, t.tone||"click", t.vol); tr.on=t.on!==false; return tr; }); render(); }
+function encodeSnap(s){ return btoa(unescape(encodeURIComponent(JSON.stringify(s)))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function decodeSnap(code){ code=code.trim().replace(/-/g,"+").replace(/_/g,"/"); while(code.length%4) code+="="; return JSON.parse(decodeURIComponent(escape(atob(code)))); }
+function saves(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||{}; }catch(e){ return {}; } }
+function renderSaves(){ const m=saves(); const box=document.getElementById("savedList"); box.innerHTML="";
+  Object.keys(m).forEach(name=>{ const d=document.createElement("div"); d.className="savedItem";
+    const b=document.createElement("button"); b.textContent="▶ "+name; b.onclick=()=>loadSnap(m[name]);
+    const del=document.createElement("button"); del.textContent="✕"; del.onclick=()=>{ const s=saves(); delete s[name]; localStorage.setItem(LS_KEY,JSON.stringify(s)); renderSaves(); };
+    d.append(b,del); box.appendChild(d); }); }
+
+// ---------- wiring ----------
+document.getElementById("playBtn").onclick=()=>setPlaying(!playing);
+document.getElementById("bpm").oninput=e=>{ state.bpm=parseInt(e.target.value,10); document.getElementById("bpmNum").textContent=state.bpm; updateMath(); };
+document.getElementById("modeF").onclick=()=>{ state.mode="F"; render(); };
+document.getElementById("modeR").onclick=()=>{ state.mode="R"; render(); };
+document.getElementById("modeB").onclick=()=>{ state.mode="B"; render(); };
+document.getElementById("addTrack").onclick=()=>{ const g=grpPatTicks([4,4,4,3]); state.tracks.push(mkTrack("layer "+state.tracks.length, g.n, g.p, "click")); render(); };
+document.getElementById("saveBtn").onclick=()=>{ const name=document.getElementById("saveName").value.trim()||("pattern "+new Date().toLocaleTimeString());
+  const s=saves(); s[name]=snapshot(); localStorage.setItem(LS_KEY,JSON.stringify(s)); renderSaves();
+  document.getElementById("shareMsg").textContent="Saved on this device."; };
+document.getElementById("exportBtn").onclick=()=>{ const code=encodeSnap(snapshot());
+  document.getElementById("shareBox").value=code; location.hash=code;
+  document.getElementById("shareMsg").textContent="Code ready — copy it to Muse, or send Muse this page's link (the code is in the link)."; };
+document.getElementById("importBtn").onclick=()=>{ try{ loadSnap(decodeSnap(document.getElementById("shareBox").value));
+  document.getElementById("shareMsg").textContent="Loaded. Hit Play."; }catch(e){ document.getElementById("shareMsg").textContent="That code didn't parse — check it's complete."; } };
+document.getElementById("copyBtn").onclick=()=>{ const b=document.getElementById("shareBox"); b.select(); document.execCommand("copy"); navigator.clipboard&&navigator.clipboard.writeText(b.value); };
+
+const presetBox=document.getElementById("presets");
+PRESETS.forEach(p=>{ const b=document.createElement("button"); b.className="presetBtn"; b.textContent=p.name;
+  b.onclick=()=>{ state.bpm=p.bpm||120; state.mode="F"; nextId=1; state.tracks=p.tracks(); render(); };
+  presetBox.appendChild(b); });
+
+// init: link code wins, else preset 4 (the stacked groupings) as a friendly first sound
+if(location.hash.length>4){ try{ loadSnap(decodeSnap(location.hash.slice(1))); }catch(e){} }
+if(!state.tracks.length){ state.bpm=120; state.tracks=PRESETS[3].tracks(); render(); }
+renderSaves();
+</script>
+</body>
+</html>
