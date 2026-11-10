@@ -149,6 +149,9 @@ function euclid(k, n){
 }
 function every(k, n){ const p=new Array(n).fill(0); for(let i=0;i<n;i+=k) p[i]=2; return {n,p}; }
 
+function holePat(holes){ // full 15 stream, accent on note 1, with the given 1-indexed notes removed (holes)
+  const p = new Array(15).fill(1); p[0]=2; holes.forEach(h=>p[h-1]=0); return {n:15, p};
+}
 const PRESETS = [
  { name:"1 · Plain 15/16 (the garbage baseline)", bpm:120, tracks(){ const g=grpPatTicks([15]); return [ mkTrack("15 straight", g.n, g.p, "click") ]; } },
  { name:"2 · 15 grouped 4+4+4+3", bpm:120, tracks(){ const g=grpPatTicks([4,4,4,3]); return [ mkTrack("grouped 15", g.n, g.p, "wood") ]; } },
@@ -160,6 +163,10 @@ const PRESETS = [
  { name:"8 · Crab starter: one 15 pattern — use Both mode to hear it against its reverse", bpm:120, tracks(){ const g=grpPat([3,2,4,2,4]); const p=g.p.map(v=>v===2?2:(v?1:0)); return [ mkTrack("crab line", g.n, p, "wood") ]; } },
  { name:"9 · The song's 30-slot block, silent centre: 15+15 with a rest at the seam", bpm:160, tracks(){ const a=grpPatTicks([15,15]); return [ mkTrack("wing block", a.n, a.p, "wood"), mkTrack("pulse", 30, every(5,30).p.map(v=>v?1:0), "click", 0.35) ]; } },
  { name:"10 · 5 over 4 over 15 (three clocks, watch the realign readout)", bpm:120, tracks(){ return [ mkTrack("every 5", 20, every(5,20).p, "kick"), mkTrack("every 4", 20, every(4,20).p, "wood"), mkTrack("15 cycle", 15, grpPatTicks([4,4,4,3]).p, "click", 0.5) ]; } },
+ { name:"11 · Holes stage 1: full 15, nothing removed (the insane baseline)", bpm:120, tracks(){ const g=holePat([]); return [ mkTrack("full 15", g.n, g.p, "wood") ]; } },
+ { name:"12 · Holes stage 2: minus 1 — note 15 out (one breath; a seam appears)", bpm:120, tracks(){ const g=holePat([15]); return [ mkTrack("15 minus note 15", g.n, g.p, "wood") ]; } },
+ { name:"13 · Holes stage 3: minus 3 — notes 4, 8, 12 out (breaths before beats 2, 3, 4 — feels like 4/4)", bpm:120, tracks(){ const g=holePat([4,8,12]); return [ mkTrack("15 minus 4, 8, 12", g.n, g.p, "wood") ]; } },
+ { name:"14 · Holes stage 4: minus 4 — notes 3, 6, 9, 12 out (breaths before the 3-groups — tips Latin)", bpm:120, tracks(){ const g=holePat([3,6,9,12]); return [ mkTrack("15 minus 3, 6, 9, 12", g.n, g.p, "wood") ]; } },
 ];
 
 // ---------- audio ----------
